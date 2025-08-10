@@ -1,0 +1,66 @@
+MOSFET Simulation
+Aim:
+To design, simulate, and analyze the electrical characteristics of an n-channel MOSFET using Silvaco TCAD ATLAS. The simulation will define the MOSFET geometry, material regions, doping concentrations, and electrode placements to generate I–V characteristics for specified gate voltages.
+
+Device Specifications:
+
+Channel Length (L): 0.05 μm
+
+Gate Oxide Thickness (t_ox): 0.002 μm (2 nm)
+
+Source and Drain Regions: Highly doped n-type silicon
+
+Substrate: P-type silicon with high doping concentration
+
+Air Region: Above gate oxide for simulation environment boundary
+
+Width: 0.25 μm total simulation domain in X-direction
+
+Height: 0.016 μm total simulation domain in Y-direction
+
+Simulation Requirements:
+
+Mesh Definition:
+
+Fine mesh in critical regions (gate oxide, channel) for higher accuracy.
+
+Coarser mesh in non-critical areas to optimize runtime.
+
+Regions:
+
+Region 1: Air (for environment boundary)
+
+Region 2: Gate oxide (SiO₂)
+
+Regions 3, 5: Source and drain silicon
+
+Region 4: Channel silicon
+
+Doping:
+
+Source/Drain: n-type, 1×10¹⁸ cm⁻³
+
+Channel: p-type, 1×10²⁰ cm⁻³
+
+Gate oxide: n-type, 1×10¹⁸ cm⁻³ (as per given script)
+
+Electrodes:
+
+Drain: Left silicon contact
+
+Gate: Above oxide region
+
+Source: Right silicon contact
+
+Models:
+
+bipolar, fldmob (field-dependent mobility model)
+
+Biasing & Analysis:
+
+Fixed V_G = 0.5 V
+
+V_D swept from 0 V to 3 V in 0.1 V steps
+
+Output: Drain current (I_D) vs. Drain voltage (V_D)
+
