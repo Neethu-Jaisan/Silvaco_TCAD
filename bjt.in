@@ -1,0 +1,63 @@
+go atlas
+title NPN BJT
+
+# --- MESH ---
+mesh space.mult=1
+
+# X-mesh
+x.mesh loc=0.0    spac=0.1
+x.mesh loc=3.0    spac=0.2
+x.mesh loc=3.1    spac=0.1
+x.mesh loc=3.4    spac=0.1
+x.mesh loc=3.5    spac=0.1
+x.mesh loc=7.5    spac=0.1
+x.mesh loc=8.5    spac=0.1
+x.mesh loc=9.0    spac=0.2
+x.mesh loc=12.0   spac=0.5
+
+# Y-mesh
+y.mesh loc=0.0    spac=0.1
+y.mesh loc=3.0    spac=0.1
+y.mesh loc=3.5    spac=0.1
+y.mesh loc=6.5    spac=0.2
+
+# --- REGIONS ---
+# Region 1: Outer N-type Collector
+region num=1 material=silicon x.min=0 x.max=12 y.min=0 y.max=6.5
+
+# Region 2: P-type Base
+region num=2 material=silicon x.min=3 x.max=9 y.min=0 y.max=3.5
+
+# Region 3: N+ Emitter
+region num=3 material=silicon x.min=3.5 x.max=8.5 y.min=0 y.max=3.0
+
+# --- DOPING ---
+doping uniform n.type conc=1e16 region=1  # Collector
+doping uniform p.type conc=1e17 region=2  # Base
+doping uniform n.type conc=1e19 region=3  # Emitter
+
+# --- ELECTRODES ---
+electrode name=collector x.min=0 x.max=12 y.min=6.5 y.max=6.5
+electrode name=base      x.min=3 x.max=9  y.min=0   y.max=0
+electrode name=emitter   x.min=3.5 x.max=8.5 y.min=0 y.max=0
+
+# --- MODELS ---
+models srh fldmob bgn
+material material=silicon
+
+# --- INIT ---
+solve init
+save outf=bjt_custom_init.str
+
+# --- BIAS SETUP ---
+solve vemitter=0 vcollector=1
+log outf=bjt_custom_iv.log
+solve vbase=0.3 vstep=0.05 vfinal=0.9 name=base
+log off
+
+save outf=bjt_custom_final.str
+
+# --- PLOT ---
+tonyplot bjt_custom_iv.log
+
+quit
