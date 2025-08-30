@@ -1,0 +1,114 @@
+go atlas
+title SOI_MOSFET
+mesh space.multi=1
+
+x.mesh loc=0.000 spacing=0.01
+x.mesh loc=0.050 spacing=0.005
+x.mesh loc=0.100 spacing=0.01
+x.mesh loc=0.200 spacing=0.01
+x.mesh loc=0.250 spacing=0.005
+x.mesh loc=0.300 spacing=0.01
+
+y.mesh loc=0.000 spacing=0.01
+y.mesh loc=0.003 spacing=0.005
+y.mesh loc=0.006 spacing=0.005
+y.mesh loc=0.021 spacing=0.005
+y.mesh loc=0.066 spacing=0.005
+y.mesh loc=0.116 spacing=0.01
+
+
+
+region num=1 SiO2 x.min=0.100 x.max=0.200 y.min=0.003 y.max=0.006
+region num=2 silicon x.min=0.000 x.max=0.100 y.min=0.006 y.max=0.021
+region num=3 silicon x.min=0.100 x.max=0.200 y.min=0.006 y.max=0.021
+region num=4 silicon x.min=0.200 x.max=0.300 y.min=0.006 y.max=0.021
+region num=5 SiO2 x.min=0.000 x.max=0.300 y.min=0.021 y.max=0.066
+region num=6 silicon x.min=0.000 x.max=0.300 y.min=0.066 y.max=0.116
+
+
+electrode name=drain x.min=0.000 x.max=0.050 y.min=0.003 y.max=0.006
+electrode name=gate x.min=0.100 x.max=0.200 y.min=0.000 y.max=0.003
+electrode name=source x.min=0.250 x.max=0.300 y.min=0.003 y.max=0.006
+
+
+doping uniform n.type conc=1e20 reg=2
+doping uniform p.type conc=1e18 reg=3
+doping uniform n.type conc=1e20 reg=4
+doping uniform p.type conc=1e20 reg=6
+
+contact name = drain
+contact name = gate
+contact name = source
+save outf=soi.str
+
+model bipolar FLDMOB
+
+output e.field j.electron j.hole j.conduc j.total ex.field ey.field e.mobility h.mobility qsse.temp h.temp qfn qfp con.band val.band j.disp
+
+solve init
+
+
+method newton
+
+
+
+solve init
+solve vgate=3
+log outf=soi_d_3_g_3.log master
+solve vsource=0 vdrain=0 vstep=0.2 vfinal=5 name=drain
+save outf=soi_d_3_g_3.str
+log off
+
+solve init
+solve vdrain=5
+log outf=soi_d_5.log master
+solve vsource=0 vgate=0 vstep=0.2 vfinal=5 name=gate
+save outf=soi_d_5.str
+log off
+
+#DIBL drain induced barrier lowering  mv/v
+
+solve init
+solve vdrain=0
+solve vdrain=0.01
+solve vdrain=0.02
+solve vdrain=0.03
+solve vdrain=0.04
+solve vdrain=0.05
+log outf=SOI_20_Vd_005.log
+solve name=gate vgate=0 vstep=0.1 vfinal=1
+#extract init infile="SGO_20_Vd_005.log"
+extract name="vt1" x.val from curve ((v."gate"), log10(abs(i."drain"))) where y.val=-7
+
+solve init
+solve prev
+solve vdrain=0
+solve vdrain=0.05
+solve vdrain=0.1
+solve vdrain=0.2
+solve vdrain=0.4
+solve vdrain=0.6
+solve vdrain=0.8
+solve vdrain=1
+log outf=SOI_20_Vd_1.log
+solve name=gate vgate=0 vstep=0.1 vfinal=1
+#solve ac freq=1e16 name=gate vgate=0 vstep=0.05 vfinal=1
+#extract init infile="SGO_20_Vd_1.log"
+extract name="vt2" x.val from curve ((v."gate"),log10(abs (i."drain"))) where y.val=-7
+
+#tonyplot SOI_Ch_20_Vg_2_Vd_1fix.log
+
+
+go atlas
+extract name="dibl" ($"vt1"-$"vt2")/(1-0.05)
+extract init infile="soi_d_5.log"
+extract name="subvt" 1.0/slope(maxslope(curve(v."gate",log10(abs(i."drain")))))
+extract name="Ioff_n" y.val from curve(v."gate",i."drain") where x.val=0
+extract name="Ion_n" y.val from curve(v."gate",i."drain") where x.val=1
+extract name="Ion_Ioff" $Ion_n/$Ioff_n
+extract name="vt" x.val from curve ((v."gate"),log10(abs(i."drain"))) where y.val=-7
+
+tonyplot -overlay SOI_20_Vd_005.log SOI_20_Vd_1.log -set SOI_20_Vd_1.log
+tonyplot soi_d_5.log
+
+quit
