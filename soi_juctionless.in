@@ -1,96 +1,151 @@
 go atlas
-title Junctionless_soi
-mesh space.multi=1
+title "Junctionless_SOI (clean)"
 
-x.mesh loc=0.000 spacing=0.001
-x.mesh loc=0.015 spacing=0.001
-x.mesh loc=0.040 spacing=0.001
-x.mesh loc=0.060 spacing=0.001
-x.mesh loc=0.085 spacing=0.001
-x.mesh loc=0.100 spacing=0.001
+# ----------------------------
+# Mesh (units: microns)
+# ----------------------------
+mesh space.mult=1
+# X-mesh
+x.mesh loc=0.000 spac=0.001
+x.mesh loc=0.015 spac=0.001
+x.mesh loc=0.040 spac=0.001
+x.mesh loc=0.060 spac=0.001
+x.mesh loc=0.085 spac=0.001
+x.mesh loc=0.100 spac=0.001
+# Y-mesh
+y.mesh loc=0.000 spac=0.001
+y.mesh loc=0.001 spac=0.0005
+y.mesh loc=0.002 spac=0.0005
+y.mesh loc=0.012 spac=0.0005
+y.mesh loc=0.022 spac=0.0005
+y.mesh loc=0.032 spac=0.001
 
-y.mesh loc=0.000 spacing=0.001
-y.mesh loc=0.001 spacing=0.0005
-y.mesh loc=0.002 spacing=0.0005
-y.mesh loc=0.012 spacing=0.0005
-y.mesh loc=0.022 spacing=0.0005
-y.mesh loc=0.032 spacing=0.001
+# ----------------------------
+# Regions (explicit material= ... )
+# ----------------------------
+region num=1 material=SiO2   x.min=0.045 x.max=0.060 y.min=0.001 y.max=0.002   # gate oxide window
+region num=2 material=silicon x.min=0.000 x.max=0.100 y.min=0.002 y.max=0.012  # thin film (channel)
+region num=3 material=SiO2   x.min=0.000 x.max=0.100 y.min=0.012 y.max=0.022  # BOX
+region num=4 material=silicon x.min=0.000 x.max=0.100 y.min=0.022 y.max=0.032  # substrate/handle
 
-region num=1 SiO2 x.min=0.045 x.max=0.060 y.min=0.001 y.max=0.002
-region num=2 silicon x.min=0.000 x.max=0.100 y.min=0.002 y.max=0.012
-region num=3 SiO2 x.min=0.000 x.max=0.100 y.min=0.012 y.max=0.022
-region num=4 silicon x.min=0.000 x.max=0.100 y.min=0.022 y.max=0.032
+# ----------------------------
+# Electrodes (placed on region boundaries)
+# Source/Drain must contact silicon film (y=0.002)
+# Gate sits above oxide (y=0.001)
+# ----------------------------
+electrode name=source x.min=0.000 x.max=0.015 y.min=0.002 y.max=0.002
+electrode name=gate   x.min=0.045 x.max=0.060 y.min=0.001 y.max=0.001
+electrode name=drain  x.min=0.085 x.max=0.100 y.min=0.002 y.max=0.002
 
+# ----------------------------
+# Contacts
+# ----------------------------
+contact name=source
+contact name=gate workfun=5.1
+contact name=drain
 
-electrode name=source x.min=0.000 x.max=0.015 y.min=0.001 y.max=0.002
-electrode name=gate x.min=0.045 x.max=0.060 y.min=0.000 y.max=0.001
-electrode name=drain x.min=0.085 x.max=0.100 y.min=0.001 y.max=0.002
+# ----------------------------
+# Doping (Junctionless design: uniformly doped channel)
+# ----------------------------
+doping uniform n.type conc=1e18 region=2       # channel (junctionless: n-doped)
+doping uniform p.type conc=1e20 region=4       # heavily doped substrate (body tie / optional)
 
-
-doping uniform n.type conc=1e18 reg=2
-doping uniform p.type conc=1e20 reg=4
-
-contact name = source
-contact name = gate workfun=5.1
-contact name = drain
-
-
-model conmob srh auger bgn fldmob print CVT 
-
-output val.band con.band qfn qfp e.field j.electron j.hole j.conduction j.total ex.field ey.field flowline e.mobility h.mobility qss e.temp h.temp j.disp
-
+# ----------------------------
+# Physical models
+# ----------------------------
+models conmob srh auger bgn fldmob fermi
 method newton trap
 
+# ----------------------------
+# Outputs (concise)
+# ----------------------------
+output val.band con.band qfn qfp e.field j.electron j.hole j.conduction j.total \
+       ex.field ey.field flowline e.mobility h.mobility
+
+# ----------------------------
+# Initial solution
+# ----------------------------
 solve init
 solve prev
+
+# ----------------------------
+# DC bias sweep strategy:
+# 1) Small vdrain steps to stabilize
+# 2) Log & sweep Vgate for two different Vdrain values to compute DIBL
+# ----------------------------
+# stabilize device by stepping Vdrain
 solve vdrain=0
 solve vdrain=0.01
 solve vdrain=0.02
 solve vdrain=0.03
 solve vdrain=0.04
 solve vdrain=0.05
-solve vdrain=1
+solve vdrain=1.0
 
-log outf=soi_jn_o5.log
-solve vgate=-0.4 vstep=0.1 vfinal=2 name=gate
-tonyplot soi_jn_o5.log
-save outf=soi_jn.str
-tonyplot soi_jn.str
-
-#extract init infile="soi_jn_o5 .log"
-extract name="vt1" x.val from curve ((v."gate"), log10(abs(i."drain"))) where y.val=-7 
-
-
+# ----------------------------
+# Sweep 1: Vd = 0.5 V (example) -> Id-Vg
+# ----------------------------
 solve init
-solve prev
-solve vdrain=0
-solve vdrain=0.05
-solve vdrain=0.1
-solve vdrain=0.2
-solve vdrain=0.4
-solve vdrain=0.6
-solve vdrain=0.8
-solve vdrain=1
+solve vdrain=0.5
+log outf=soi_jn_vd0p5.log master
+solve name=gate vgate=-0.4 vstep=0.1 vfinal=2.0
+log off
+save outf=soi_jn_vd0p5.str
 
-log outf=soi_jn_1.log
+# ----------------------------
+# Sweep 2: Vd = 1.0 V -> Id-Vg
+# ----------------------------
+solve init
+solve vdrain=1.0
+log outf=soi_jn_vd1p0.log master
+solve name=gate vgate=-0.4 vstep=0.1 vfinal=2.0
+log off
+save outf=soi_jn_vd1p0.str
 
-solve ac freq =1e6 vgate=-0.4 vstep=0.1 vfinal=2 name=gate
-#extract init infile="soi_jn_1.log"
+# ----------------------------
+# Optional AC small-signal around a bias point (example)
+# Note: AC requires a DC bias point first; use a low frequency for sanity-check
+# ----------------------------
+solve init
+solve vdrain=0.5 vgate=1.0
+# small-signal AC analysis (example freq)
+ac freq=1e6
+# (If you want to extract S-params, a different workflow is used; this is a placeholder.)
 
-extract name="vt2" x.val from curve ((v."gate"), log10(abs(i."drain"))) where y.val=-7 
+# ----------------------------
+# Plots: transfer curves & structure
+# ----------------------------
+tonyplot soi_jn_vd0p5.log soi_jn_vd1p0.log
+tonyplot soi_jn_vd0p5.str
 
-save outf=soi_jn.str
-tonyplot soi_jn_1.log
+# ----------------------------
+# Extract device metrics: VT, IOFF, ION, SS, DIBL, gm
+# - VT: V at Id = 1e-7 A (adjust threshold current for device size)
+# - IOFF: Id @ Vg = 0 (Vd as per sweep)
+# - ION: Id @ Vg = 1.0 V (or Vdd)
+# - SS: 1000 / slope(maxslope(log10(Id) vs Vg)) -> in mV/dec
+# - DIBL: ΔVT/(Vd_high - Vd_low) -> mV/V
+# ----------------------------
+# Use vd=0.5 logfile for baseline IOFF/ION and SS/VT
+extract init infile="soi_jn_vd0p5.log"
+extract name="Ioff_vd0p5" y.val from curve(v."gate", i."drain") where x.val=0.0
+extract name="Ion_vd0p5"  y.val from curve(v."gate", i."drain") where x.val=1.0
+extract name="SS_mVdec_vd0p5" 1000.0/slope(maxslope(curve(v."gate", log10(abs(i."drain")))))
+extract name="Vt_vd0p5" x.val from curve(v."gate", log10(abs(i."drain"))) where y.val=-7
 
-tonyplot -overlay soi_jn_o5.log soi_jn_1.log -set soi_jn_1.log
+# Use vd=1.0 logfile for vt high
+extract init infile="soi_jn_vd1p0.log"
+extract name="Vt_vd1p0" x.val from curve(v."gate", log10(abs(i."drain"))) where y.val=-7
 
-extract name="dibl"($"vt1"-$"vt2")/(1-0.05)
-#extract init infile="soi_jn_1.log"
-extract name="subvt" 1.0/slope(maxslope(curve(v."gate",log10(abs(i."drain")))))
-extract name="Ioff_n" y.val from curve(v."gate",i."drain")where x.val=0
-extract name="Ioff_n" y.val from curve(v."gate",i."drain")where x.val=1
-extract name="Ion_Ioff" $Ion_n/$Ioff_n
+# DIBL in mV/V
+extract name="DIBL_mV_per_V" 1000.0*($Vt_vd0p5 - $Vt_vd1p0)/(1.0-0.5)
 
-extract name="gm" curve (v."gate",dydx (v."gate",i."drain")) outf="gm.dat"
+# Ion/Ioff ratio
+extract name="Ion_Ioff_ratio" $Ion_vd0p5 / $Ioff_vd0p5
+
+# Transconductance (gm) calculation: numerical derivative of Id vs Vg from vd=0.5 log
+# This writes gm vs Vg to gm_jn.dat
+extract init infile="soi_jn_vd0p5.log"
+extract name="gm_curve" curve (v."gate", dydx (v."gate", i."drain")) outf="gm_jn.dat"
 
 quit
