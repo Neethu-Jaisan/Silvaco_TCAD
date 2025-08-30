@@ -1,0 +1,96 @@
+go atlas
+title Junctionless_soi
+mesh space.multi=1
+
+x.mesh loc=0.000 spacing=0.001
+x.mesh loc=0.015 spacing=0.001
+x.mesh loc=0.040 spacing=0.001
+x.mesh loc=0.060 spacing=0.001
+x.mesh loc=0.085 spacing=0.001
+x.mesh loc=0.100 spacing=0.001
+
+y.mesh loc=0.000 spacing=0.001
+y.mesh loc=0.001 spacing=0.0005
+y.mesh loc=0.002 spacing=0.0005
+y.mesh loc=0.012 spacing=0.0005
+y.mesh loc=0.022 spacing=0.0005
+y.mesh loc=0.032 spacing=0.001
+
+region num=1 SiO2 x.min=0.045 x.max=0.060 y.min=0.001 y.max=0.002
+region num=2 silicon x.min=0.000 x.max=0.100 y.min=0.002 y.max=0.012
+region num=3 SiO2 x.min=0.000 x.max=0.100 y.min=0.012 y.max=0.022
+region num=4 silicon x.min=0.000 x.max=0.100 y.min=0.022 y.max=0.032
+
+
+electrode name=source x.min=0.000 x.max=0.015 y.min=0.001 y.max=0.002
+electrode name=gate x.min=0.045 x.max=0.060 y.min=0.000 y.max=0.001
+electrode name=drain x.min=0.085 x.max=0.100 y.min=0.001 y.max=0.002
+
+
+doping uniform n.type conc=1e18 reg=2
+doping uniform p.type conc=1e20 reg=4
+
+contact name = source
+contact name = gate workfun=5.1
+contact name = drain
+
+
+model conmob srh auger bgn fldmob print CVT 
+
+output val.band con.band qfn qfp e.field j.electron j.hole j.conduction j.total ex.field ey.field flowline e.mobility h.mobility qss e.temp h.temp j.disp
+
+method newton trap
+
+solve init
+solve prev
+solve vdrain=0
+solve vdrain=0.01
+solve vdrain=0.02
+solve vdrain=0.03
+solve vdrain=0.04
+solve vdrain=0.05
+solve vdrain=1
+
+log outf=soi_jn_o5.log
+solve vgate=-0.4 vstep=0.1 vfinal=2 name=gate
+tonyplot soi_jn_o5.log
+save outf=soi_jn.str
+tonyplot soi_jn.str
+
+#extract init infile="soi_jn_o5 .log"
+extract name="vt1" x.val from curve ((v."gate"), log10(abs(i."drain"))) where y.val=-7 
+
+
+solve init
+solve prev
+solve vdrain=0
+solve vdrain=0.05
+solve vdrain=0.1
+solve vdrain=0.2
+solve vdrain=0.4
+solve vdrain=0.6
+solve vdrain=0.8
+solve vdrain=1
+
+log outf=soi_jn_1.log
+
+solve ac freq =1e6 vgate=-0.4 vstep=0.1 vfinal=2 name=gate
+#extract init infile="soi_jn_1.log"
+
+extract name="vt2" x.val from curve ((v."gate"), log10(abs(i."drain"))) where y.val=-7 
+
+save outf=soi_jn.str
+tonyplot soi_jn_1.log
+
+tonyplot -overlay soi_jn_o5.log soi_jn_1.log -set soi_jn_1.log
+
+extract name="dibl"($"vt1"-$"vt2")/(1-0.05)
+#extract init infile="soi_jn_1.log"
+extract name="subvt" 1.0/slope(maxslope(curve(v."gate",log10(abs(i."drain")))))
+extract name="Ioff_n" y.val from curve(v."gate",i."drain")where x.val=0
+extract name="Ioff_n" y.val from curve(v."gate",i."drain")where x.val=1
+extract name="Ion_Ioff" $Ion_n/$Ioff_n
+
+extract name="gm" curve (v."gate",dydx (v."gate",i."drain")) outf="gm.dat"
+
+quit
